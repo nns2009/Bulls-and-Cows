@@ -51,6 +51,7 @@ type Msg
     = Answer (List Int)
     | GuessChange String
     | GuessCheck
+    | Restart
 
 stringToDigits : String -> List Int
 stringToDigits s =
@@ -106,6 +107,8 @@ update msg model =
                   }
                 , Cmd.none
                 )
+        Restart ->
+            init ()
 
 fillAllSpace = batch
     [ position absolute
@@ -172,6 +175,12 @@ view model =
                 "No digits generated so far"
             Just digits ->
                 String.join "" (List.map toString digits)
+        lastGuess = List.Extra.last model.guesses
+        gameOver = 
+            case (lastGuess, model.answer) of
+               (Nothing, _) -> False
+               (_, Nothing) -> False
+               (Just guess, Just answerDigits) -> guess == answerDigits
     in
         { title = answerText
         , body =
@@ -209,13 +218,24 @@ view model =
                             ]
                         ] []
                         , button
-                            [ Attr.disabled ((String.length model.guess /= digitsCount) || ((model.guess |> String.toList |> List.Extra.unique |> List.length) /= digitsCount))
+                            [ Attr.disabled
+                                (  (String.length model.guess /= digitsCount)
+                                || ((model.guess |> String.toList |> List.Extra.unique |> List.length) /= digitsCount)
+                                || gameOver
+                                )
                             , css
                             [ mainTextStyle
                             , width (em 1.6)
                             ]
                             ] [ text "?" ] ]
-                        
+                    , div [ css [mainTextStyle] ]
+                        (if gameOver then
+                            [ div [] [ text "Correct!" ]
+                            , div [] [ text ("You guessed the number in " ++ (String.fromInt <| List.length model.guesses) ++ " guesses") ]
+                            , button [ onClick Restart, css [ mainTextStyle ] ] [ text "Play again"]
+                            ]
+                         else []
+                        )
                     , div []
                         [ text model.message ]
                     ]
