@@ -20,6 +20,9 @@ import Debug exposing (toString)
 import Css.Global exposing (descendants)
 
 -- Common
+str : Int -> String
+str = String.fromInt
+
 pluralize : String -> Int -> String
 pluralize string count =
     if count == 1 then
@@ -29,7 +32,7 @@ pluralize string count =
 
 nThings : String -> Int -> String
 nThings string count =
-    String.fromInt count ++ " " ++ pluralize string count
+    str count ++ " " ++ pluralize string count
 
 pluralizeIs : Int -> String
 pluralizeIs count =
@@ -81,7 +84,7 @@ stringToDigits s =
 
 digitsToString : List Int -> String
 digitsToString digits =
-    digits |> List.map String.fromInt |> String.join ""
+    digits |> List.map str |> String.join ""
 
 type alias BullsCows =
     { bulls: Int
@@ -188,6 +191,11 @@ mainTextStyle = batch
 
 secondaryTextStyle = batch
     [ baseTextStyle
+    , fontSize (px 22)
+    ]
+
+menuTitleTextStyle = batch
+    [ baseTextStyle
     , color (hsl 0 0 0.4)
     ]
 
@@ -228,14 +236,14 @@ guessView : List Int -> List Int -> Html Msg
 guessView answer guess =
     let 
         { bulls, cows } = countBullsCows guess answer
-        guessString = String.join "" (guess |> List.map String.fromInt)
+        guessString = String.join "" (guess |> List.map str)
     in
     tr [ css [ rowStyle ] ]
       [ td [ css [cellStyle] ] [text guessString]
-      , td [ css [cellStyle] ] [text <| String.fromInt cows]
-      , td [ css [cellStyle] ] [text <| String.fromInt bulls]
+      , td [ css [cellStyle] ] [text <| str cows]
+      , td [ css [cellStyle] ] [text <| str bulls]
       ]
-      --  [ text (guessString ++ " - " ++ (String.fromInt cows) ++ " cows, " ++ (String.fromInt bulls) ++ " bulls")]
+      --  [ text (guessString ++ " - " ++ (str cows) ++ " cows, " ++ (str bulls) ++ " bulls")]
 
 
 
@@ -304,7 +312,7 @@ rulesView =
       [ class "revealHeader"
       , css
         [ dockFull
-        , secondaryTextStyle
+        , menuTitleTextStyle
         , fontSize (px 20)
         ]
       ]
@@ -333,29 +341,35 @@ nBulls = nThings "bull"
 nDigits = nThings "digit"
 
 welcomePrompt =
+    div []
     [ div [] [ text <| "I picked " ++ (toString digitsCount) ++ " different random digits" ]
+    , div [] [ text <| "(for example: 2954, 0865, 3721)" ]
     , div [] [ text <| "Try to guess them!" ]
     ]
 
-firstGuessPrompt : List Int -> BullsCows -> List (Html Msg)
-firstGuessPrompt guess res =
-    [ div [] [ text (digitsToString guess ++ "?")]
-    , div [] [ text "Good guess!" ]
-    , div [] [ text <| "My response is " ++ nCows res.cows ++ " and " ++ nBulls res.bulls ++ ", which means there " ++ pluralizeIs res.cows ]
-    , ul [ css [listStyle] ]
-        [ li [] [ text <| nDigits res.cows ++ " that you guessed correctly but in the wrong position and" ]
-        , li [] [ text <| nDigits res.bulls  ++ " that you guessed correctly and in the correct position" ]
+firstGuessPrompt : List Int -> List Int -> Html Msg
+firstGuessPrompt answer guess =
+    let { cows, bulls } = countBullsCows answer guess
+    in
+        div []
+        [ div [] [ text (digitsToString guess ++ "?")]
+        , div [] [ text "Good guess!" ]
+        , div [] [ text <| "My response is " ++ nCows cows ++ " and " ++ nBulls bulls ++ ", which means there " ++ pluralizeIs cows ]
+        , ul [ css [listStyle] ]
+            [ li [] [ text <| nDigits cows ++ " that you guessed correctly but in the wrong position and" ]
+            , li [] [ text <| nDigits bulls  ++ " that you guessed correctly and in the correct position" ]
+            ]
+        , div [] [ text <| "Pick your next guess ..."]
         ]
-    , div [] [ text <| "Pick your next guess ..."]
-    ]
 
-secondGuessPrompt : List Int -> BullsCows -> List (Html Msg)
-secondGuessPrompt guess res =
-    let { cows, bulls } = res
+secondGuessPrompt : List Int -> List Int -> Html Msg
+secondGuessPrompt answer guess =
+    let { cows, bulls } = countBullsCows answer guess
         correct = cows + bulls
     in
+        div []
         [ div [] [ text (digitsToString guess ++ "? - Interesting")]
-        , div [] [ text <| nCows cows ++ " and " ++ nBulls bulls ++ ", which as before means there " ++ pluralizeIs correct ++ " " ++ String.fromInt cows ++ "+" ++ String.fromInt bulls ++ "=" ++ String.fromInt correct ++ " " ++ pluralize "digit" correct ++ " that you guessed correctly:" ]
+        , div [] [ text <| nCows cows ++ " and " ++ nBulls bulls ++ ", which as before means there " ++ pluralizeIs correct ++ " " ++ str cows ++ "+" ++ str bulls ++ "=" ++ str correct ++ " " ++ pluralize "digit" correct ++ " that you guessed correctly:" ]
         , ul [ css [listStyle] ]
             [ li [] [ text <| nDigits cows ++ " in the wrong position and" ]
             , li [] [ text <| nDigits bulls ++ " in the correct one"]
@@ -363,11 +377,12 @@ secondGuessPrompt guess res =
         , div [] [ text "Continue guessing ..." ]
         ]
 
-thirdGuessPrompt : List Int -> BullsCows -> List (Html Msg)
-thirdGuessPrompt guess res =
-    let { cows, bulls } = res
+thirdGuessPrompt : List Int -> List Int -> Html Msg
+thirdGuessPrompt answer guess =
+    let { cows, bulls } = countBullsCows answer guess
         --correct = cows + bulls
     in
+        div []
         [ div [] [ text <| digitsToString guess ++ " - " ++ nCows cows ++ " and " ++ nBulls bulls ]
         , ul [ css [listStyle] ]
             [ li [] [ text <| nDigits cows ++ " in wrong position" ]
@@ -376,53 +391,93 @@ thirdGuessPrompt guess res =
         , div [] [ text "Keep guessing ..." ]
         ]
 
-fourthGuessPrompt : List Int -> BullsCows -> List (Html Msg)
-fourthGuessPrompt guess res =
-    let { cows, bulls } = res
+fourthGuessPrompt : List Int -> List Int -> Html Msg
+fourthGuessPrompt answer guess =
+    let { cows, bulls } = countBullsCows answer guess
         --correct = cows + bulls
     in
+        div []
         [ div [] [ text <| digitsToString guess ++ " - " ++ nCows cows ++ " and " ++ nBulls bulls ]
         , div [] [ text "Continue guessing until you guess the correct number" ]
         ]
 
-goodLuckPrompt : List (Html Msg)
+goodLuckPrompt : Html Msg
 goodLuckPrompt =
+    div []
     [ div [] [ text "Good luck!" ]
     , div [] [ text "Feel free to refer to the rules at the right side if needed" ]
     ]
 
 
+closableOpenTime = 300
+closableStyle = batch
+    [ position absolute
+    , overflow hidden
+    , width (pct 100)
+    --, debugBorder
+    -- TODO: examine if the style on the following line is possible
+    -- , borderTop3 (px 1) solid (rgb 0 0 0) , borderBottom3 (px 1) solid (rgb 0 0 0)
+    , transition
+      [ Tr.top closableOpenTime
+      , Tr.bottom closableOpenTime
+      , Tr.opacity closableOpenTime
+      ]
+    ]
+closedBelow = batch 
+    [ closableStyle
+    , top (pct 100)
+    , bottom zero
+    , opacity zero
+    ]
+fullHeight = batch 
+    [ closableStyle
+    , top zero
+    , bottom zero
+    , opacity (num 1)
+    ]
+closedAbove = batch
+    [ closableStyle
+    , top zero
+    , bottom (pct 100)
+    , opacity zero
+    ]
 
-propmtView : List Int -> Int -> Maybe (List Int) -> Html Msg
-propmtView answer numGuesses lastGuess =
+orderStyle order =
+    case order of
+        LT -> closedBelow
+        EQ -> fullHeight
+        GT -> closedAbove
+
+propmtView : List Int -> List (List Int) -> Html Msg
+propmtView answer guesses =
     let
-        show = numGuesses <= 5
-        res = countBullsCows answer (lastGuess |> withDefault [])
+        numGuesses = List.length guesses
+        nGuessesStyle n = orderStyle <| compare numGuesses n
+        prompt n child =
+            div [ css [nGuessesStyle n, centerChildren, secondaryTextStyle] ]
+                [ child ]
     in
         div [ css 
-            [ position absolute
-            , top zero
-            , width (pct 50)
-            , height (pct 40)
-            , pointerEvents none
-            , centerChildren
-            , mainTextStyle
-            , opacity <| num <| if show then 1 else 0
-            , transition
-            [ Tr.opacity 300 ]
-            ]]
-            [ div []
-                (case numGuesses of
-                  0 -> welcomePrompt
-                  1 -> firstGuessPrompt (lastGuess |> withDefault []) res
-                  2 -> secondGuessPrompt (lastGuess |> withDefault []) res
-                  3 -> thirdGuessPrompt (lastGuess |> withDefault []) res
-                  4 -> fourthGuessPrompt (lastGuess |> withDefault []) res
-                  5 -> goodLuckPrompt
-                  _ ->
-                    []
-                )
+                [ position absolute
+                , top (pct 0)
+                , width (pct 45)
+                , height (pct 40)
+                , pointerEvents none
+                --, centerChildren
+                , mainTextStyle
+                --, opacity <| num <| if show then 1 else 0
+                --, transition [ Tr.opacity 300 ]
+                ]
             ]
+            --[ div []
+                [ prompt 0 <| welcomePrompt
+                , prompt 1 <| firstGuessPrompt answer (guesses |> List.Extra.getAt 0 |> withDefault [])
+                , prompt 2 <| secondGuessPrompt answer (guesses |> List.Extra.getAt 1 |> withDefault [])
+                , prompt 3 <| thirdGuessPrompt answer (guesses |> List.Extra.getAt 2 |> withDefault [])
+                , prompt 4 <| fourthGuessPrompt answer (guesses |> List.Extra.getAt 3 |> withDefault [])
+                , prompt 5 <| goodLuckPrompt
+                ]
+            --]
 
 view : Model -> Browser.Document Msg
 view model =
@@ -512,7 +567,7 @@ view model =
                         (if gameOver then
                             [ div [] [ text "Correct!" ]
                             , div [] [ text ("The number is " ++ answerText)]
-                            , div [] [ text ("You guessed it in " ++ (String.fromInt <| List.length model.guesses) ++ " turns") ]
+                            , div [] [ text ("You guessed it in " ++ (str <| List.length model.guesses) ++ " turns") ]
                             , button [ onClick Restart, css [ mainTextStyle ] ] [ text "Play again"]
                             ]
                          else []
@@ -521,7 +576,7 @@ view model =
                         [ text model.message ]
                     ]
                 , rulesView
-                , propmtView (model.answer |> withDefault []) numGuesses lastGuess
+                , propmtView (model.answer |> withDefault []) model.guesses
                 ] |> toUnstyled
             ]
         }
