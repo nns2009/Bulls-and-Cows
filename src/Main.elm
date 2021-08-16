@@ -6,7 +6,7 @@ import Random
 
 import Browser
 
-import Css exposing (..)
+import Css as CSS exposing (..)
 import Css.Transitions as Tr
 import Css.Transitions exposing (transition)
 import Css.Global as GSS exposing (children)
@@ -135,10 +135,19 @@ mainTextStyle = batch
 listStyle = batch
     [ paddingLeft (em 1) ]
 
+rowHeight = 50
+rowStyle = batch
+    [ minHeight zero
+    , height (px rowHeight)
+    ]
 cellStyle = batch
-    [ width (pct 33)
+    [ minHeight zero
     , border3 (px 1) solid (rgb 150 150 150)
     , textAlign center
+    ]
+headerCellStyle = batch
+    [ cellStyle
+    , fontSize (em 0.7)
     ]
 
 rulesPanelOpenTime = 350
@@ -160,7 +169,7 @@ guessView answer guess =
         { bulls, cows } = countBullsCows guess answer
         guessString = String.join "" (guess |> List.map String.fromInt)
     in
-    tr [ ]
+    tr [ css [ rowStyle ] ]
       [ td [ css [cellStyle] ] [text guessString]
       , td [ css [cellStyle] ] [text <| String.fromInt cows]
       , td [ css [cellStyle] ] [text <| String.fromInt bulls]
@@ -175,6 +184,7 @@ view model =
                 "No digits generated so far"
             Just digits ->
                 String.join "" (List.map toString digits)
+        numGuesses = List.length model.guesses
         lastGuess = List.Extra.last model.guesses
         gameOver = 
             case (lastGuess, model.answer) of
@@ -191,32 +201,49 @@ view model =
                   , GSS.everything [ boxSizing borderBox ]
                   ]
                 , div [css
-                    [ width (px 250)
-                    , border3 (px 1) solid (rgb 255 0 0)
+                    [ width (px 230)
+                    , border3 (px 1) solid (hsl 0 0 0.95)
                     , displayFlex
                     , flexDirection column
                     ]]
-                    [ H.table [ css
-                        [ mainTextStyle
-                        , borderCollapse collapse
-                        ]]
-                        <| tr []
-                          [ th [ css [cellStyle] ] [ text "-" ]
-                          , th [ css [cellStyle] ] [ text "Cows" ]
-                          , th [ css [cellStyle] ] [ text "Bulls" ]
-                          ]
-                        :: (model.guesses |> List.map (guessView (model.answer |> withDefault [])))
-                    , form [onSubmit GuessCheck, css [displayFlex]]
-                        [ input
-                        [ value model.guess
-                        , onInput GuessChange
-                        --, 
-                        , css
-                            [ flex2 (num 1) (num 1)
-                            , minWidth (px 0)
+                    [ div [ css
+                      [ height (px <| rowHeight * (toFloat (numGuesses + 1)) + 1)
+                      , transition
+                        [ Tr.height 150 ]
+                      ]]
+                      [ H.table [ css
+                            [ width (pct 100)
                             , mainTextStyle
+                            , borderCollapse collapse
+                            ]]
+                            <| tr [ css [ rowStyle ] ]
+                            [ th [ css [headerCellStyle, width (pct 50) ] ] [ text "Guess" ]
+                            , th [ css [headerCellStyle, width (pct 25) ] ] [ text "Cows" ]
+                            , th [ css [headerCellStyle, width (pct 25) ] ] [ text "Bulls" ]
                             ]
-                        ] []
+                            :: (model.guesses |> List.map (guessView (model.answer |> withDefault [])))
+                      ]
+                    , form 
+                        [ onSubmit GuessCheck
+                        , css
+                          [ if gameOver then display none else displayFlex
+                          , position relative
+                          ]
+                        ]
+                        [ input
+                            [ value model.guess
+                            , onInput GuessChange
+                            --, 
+                            , css
+                                [ flex2 (num 1) (num 1)
+                                , minWidth (px 0)
+                                , padding4 (em 0.3) zero (em 0.3) (em 0.45)
+                                , border zero
+                                , borderBottom3 (px 2) solid (hsl 0 0 0.5)
+                                , outline none
+                                , mainTextStyle
+                                ]
+                            ] []
                         , button
                             [ Attr.disabled
                                 (  (String.length model.guess /= digitsCount)
@@ -225,13 +252,20 @@ view model =
                                 )
                             , css
                             [ mainTextStyle
+                            , position absolute
+                            , top zero
+                            , bottom zero
+                            , right zero
                             , width (em 1.6)
+                            , backgroundColor transparent
+                            , border zero
                             ]
                             ] [ text "?" ] ]
                     , div [ css [mainTextStyle] ]
                         (if gameOver then
                             [ div [] [ text "Correct!" ]
-                            , div [] [ text ("You guessed the number in " ++ (String.fromInt <| List.length model.guesses) ++ " guesses") ]
+                            , div [] [ text ("The number is " ++ answerText)]
+                            , div [] [ text ("You guessed it in " ++ (String.fromInt <| List.length model.guesses) ++ " turns") ]
                             , button [ onClick Restart, css [ mainTextStyle ] ] [ text "Play again"]
                             ]
                          else []
@@ -245,7 +279,7 @@ view model =
                   , right zero
                   , top zero
                   , bottom zero
-                  , backgroundColor debugBackgroundColor
+                  , backgroundColor (hsl 0 0 0.975)
                   , rulesTextStyle
                   , transition
                     [ Tr.width rulesPanelOpenTime
