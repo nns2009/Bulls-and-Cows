@@ -12,11 +12,33 @@ import Css.Transitions exposing (transition)
 import Css.Global as GSS exposing (children)
 -- import Html
 import Html.Styled as H
-import Html.Styled exposing (text, div, span, p, th, tr, td, ul, li, input, button, form, Html, toUnstyled)
+import Html.Styled exposing (text, div, span, p, th, tr, td, ul, li, input, button, form, Html, h1, toUnstyled)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Attributes exposing (id, class, value, type_, css)
 import Html.Styled.Events exposing (onClick, onInput, onSubmit)
 import Debug exposing (toString)
+import Css.Global exposing (descendants)
+
+-- Common
+pluralize : String -> Int -> String
+pluralize string count =
+    if count == 1 then
+        string
+    else
+        string ++ "s"
+
+nThings : String -> Int -> String
+nThings string count =
+    String.fromInt count ++ " " ++ pluralize string count
+
+pluralizeIs : Int -> String
+pluralizeIs count =
+    if count == 1 then
+        "is"
+    else
+        "are"
+
+-- Game Logic
 
 main : Program () Model Msg
 main = Browser.document
@@ -38,7 +60,7 @@ generateAnswer =
     Random.generate Answer (Random.list digitsCount (Random.int 0 9))
 
 init : flags -> (Model, Cmd Msg)
-init flags =
+init _ =
     ( { answer = Nothing
       , message = ""
       , guess = ""
@@ -56,6 +78,10 @@ type Msg
 stringToDigits : String -> List Int
 stringToDigits s =
     s |> String.toList |> List.map (String.fromChar >> String.toInt >> withDefault -1)
+
+digitsToString : List Int -> String
+digitsToString digits =
+    digits |> List.map String.fromInt |> String.join ""
 
 type alias BullsCows =
     { bulls: Int
@@ -110,12 +136,8 @@ update msg model =
         Restart ->
             init ()
 
-fillAllSpace = batch
-    [ position absolute
-    , top zero
-    , bottom zero
-    , left zero
-    , right zero
+debugBorder = batch
+    [ --border3 (px 1) solid (hsl 0 0 0.95)
     ]
 
 centerChildren = batch
@@ -124,16 +146,54 @@ centerChildren = batch
     , justifyContent center
     ]
 
+dockFull = batch
+    [ position absolute
+    , top zero
+    , bottom zero
+    , right zero
+    , left zero
+    ]
+
+dockRight = batch
+    [ position absolute
+    , right zero
+    , top zero
+    , bottom zero
+    ]
+dockLeft = batch
+    [ position absolute
+    , left zero
+    , top zero
+    , bottom zero
+    ]
+dockTop = batch
+    [ position absolute
+    , top zero
+    , left zero
+    , right zero
+    ]
+
+-- Text styles
 mainFontFamily = "Calibri"
-mainFontSize = em 1.6
+mainFontSize = px 24
+
+baseTextStyle = batch
+    [ fontFamilies [ mainFontFamily ]
+    ]
 
 mainTextStyle = batch
-    [ fontSize mainFontSize
-    , fontFamilies [ mainFontFamily ]
+    [ baseTextStyle
+    , fontSize mainFontSize 
+    ]
+
+secondaryTextStyle = batch
+    [ baseTextStyle
+    , color (hsl 0 0 0.4)
     ]
 
 listStyle = batch
-    [ paddingLeft (em 1) ]
+    [ paddingLeft (em 1)
+    , marginTop (px 10), marginBottom (px 10) ]
 
 rowHeight = 50
 rowStyle = batch
@@ -150,9 +210,10 @@ headerCellStyle = batch
     , fontSize (em 0.7)
     ]
 
-rulesPanelOpenTime = 350
+rulesPanelOpenTime = 360
 rulesClosedWidth = px 100
 rulesOpenWidth = px 290
+rulesTitleTranisionDistance = 18
 rulesPanelPadding = em 1
 rulesTextStyle = batch
     [ fontSize (em 1.2)
@@ -175,6 +236,193 @@ guessView answer guess =
       , td [ css [cellStyle] ] [text <| String.fromInt bulls]
       ]
       --  [ text (guessString ++ " - " ++ (String.fromInt cows) ++ " cows, " ++ (String.fromInt bulls) ++ " bulls")]
+
+
+
+
+rulesView : Html Msg
+rulesView =
+  div [ css
+    [ dockRight
+    , zIndex (int 4)
+    , overflow hidden
+    , backgroundColor (hsl 0 0 0.985)
+    , rulesTextStyle
+    , transition
+      [ Tr.width rulesPanelOpenTime
+      ]
+    , width rulesClosedWidth
+    , descendants
+      [ GSS.class "revealHeader"
+        [ opacity (num 1)
+        , visibility visible
+        , padding rulesPanelPadding
+        , transition
+            [ Tr.opacity rulesPanelOpenTime
+            , Tr.visibility rulesPanelOpenTime
+            ]
+        , centerChildren
+        ]
+      , GSS.class "revealContent"
+        [ opacity (num 0)
+        , padding rulesPanelPadding
+        , width rulesOpenWidth
+        , transition
+            [ Tr.opacity rulesPanelOpenTime
+            ]
+        , centerChildren 
+        ]
+      , GSS.class "revealHeaderTitle"
+        [ top (px 0)
+        , transition
+            [ Tr.top rulesPanelOpenTime ]
+        ]
+      , GSS.class "revealContentTitle"
+        [ top (px rulesTitleTranisionDistance)
+        , transition 
+            [ Tr.top rulesPanelOpenTime ]
+        ]
+      ]
+    , hover
+    [ width rulesOpenWidth
+    , descendants
+        [ GSS.class "revealHeader"
+            [ opacity (num 0)
+            , visibility hidden
+            ]
+        , GSS.class "revealContent"
+            [ opacity (num 1)
+            ]
+        , GSS.class "revealHeaderTitle"
+            [ top (px <| negate rulesTitleTranisionDistance) ]
+        , GSS.class "revealContentTitle"
+            [ top (px 0) ]
+        ]
+    ]
+    ]]
+    [ div
+      [ class "revealHeader"
+      , css
+        [ dockFull
+        , secondaryTextStyle
+        , fontSize (px 20)
+        ]
+      ]
+      [ div [ class "revealHeaderTitle", css [ position relative ] ]
+          [ text "Rules" ]
+      ]
+    , div [ class "revealContent", css [height (pct 100)] ]
+      [ div []
+        [ div [ class "revealContentTitle", css [ textAlign center, position relative ] ]
+          [ H.b [] [ text "Rules" ] ]
+        , p [] [ text "Computer picked up a random number (with a specified number of digits) where all digits are different - your goal is to guess it" ]
+        , p [] [ text "Your guess has to be a number with the same number of digits and digits in your number should be different as well. For each of your guesses computer replies with a number of \"Cows\" and \"Bulls\", where"]
+        , ul [ css [listStyle] ]
+            [ li [] [ text "\"Cows\" means the number of correct digits but in the wrong position"]
+            , li [] [ text "\"Bulls\" means the number of correct digits in the correct position"]
+            ]
+        , p [] [ text "Try to guess computer's number in the fewest moves possible!" ]
+        , p [] [ text "Post your results in the comments:)" ]
+        ]
+      ]
+    ]
+
+-- Text pluralization
+nCows = nThings "cow"
+nBulls = nThings "bull"
+nDigits = nThings "digit"
+
+welcomePrompt =
+    [ div [] [ text <| "I picked " ++ (toString digitsCount) ++ " different random digits" ]
+    , div [] [ text <| "Try to guess them!" ]
+    ]
+
+firstGuessPrompt : List Int -> BullsCows -> List (Html Msg)
+firstGuessPrompt guess res =
+    [ div [] [ text (digitsToString guess ++ "?")]
+    , div [] [ text "Good guess!" ]
+    , div [] [ text <| "My response is " ++ nCows res.cows ++ " and " ++ nBulls res.bulls ++ ", which means there " ++ pluralizeIs res.cows ]
+    , ul [ css [listStyle] ]
+        [ li [] [ text <| nDigits res.cows ++ " that you guessed correctly but in the wrong position and" ]
+        , li [] [ text <| nDigits res.bulls  ++ " that you guessed correctly and in the correct position" ]
+        ]
+    , div [] [ text <| "Pick your next guess ..."]
+    ]
+
+secondGuessPrompt : List Int -> BullsCows -> List (Html Msg)
+secondGuessPrompt guess res =
+    let { cows, bulls } = res
+        correct = cows + bulls
+    in
+        [ div [] [ text (digitsToString guess ++ "? - Interesting")]
+        , div [] [ text <| nCows cows ++ " and " ++ nBulls bulls ++ ", which as before means there " ++ pluralizeIs correct ++ " " ++ String.fromInt cows ++ "+" ++ String.fromInt bulls ++ "=" ++ String.fromInt correct ++ " " ++ pluralize "digit" correct ++ " that you guessed correctly:" ]
+        , ul [ css [listStyle] ]
+            [ li [] [ text <| nDigits cows ++ " in the wrong position and" ]
+            , li [] [ text <| nDigits bulls ++ " in the correct one"]
+            ]
+        , div [] [ text "Continue guessing ..." ]
+        ]
+
+thirdGuessPrompt : List Int -> BullsCows -> List (Html Msg)
+thirdGuessPrompt guess res =
+    let { cows, bulls } = res
+        --correct = cows + bulls
+    in
+        [ div [] [ text <| digitsToString guess ++ " - " ++ nCows cows ++ " and " ++ nBulls bulls ]
+        , ul [ css [listStyle] ]
+            [ li [] [ text <| nDigits cows ++ " in wrong position" ]
+            , li [] [ text <| nDigits bulls ++ " in correct position" ]
+            ]
+        , div [] [ text "Keep guessing ..." ]
+        ]
+
+fourthGuessPrompt : List Int -> BullsCows -> List (Html Msg)
+fourthGuessPrompt guess res =
+    let { cows, bulls } = res
+        --correct = cows + bulls
+    in
+        [ div [] [ text <| digitsToString guess ++ " - " ++ nCows cows ++ " and " ++ nBulls bulls ]
+        , div [] [ text "Continue guessing until you guess the correct number" ]
+        ]
+
+goodLuckPrompt : List (Html Msg)
+goodLuckPrompt =
+    [ div [] [ text "Good luck!" ]
+    , div [] [ text "Feel free to refer to the rules at the right side if needed" ]
+    ]
+
+
+
+propmtView : List Int -> Int -> Maybe (List Int) -> Html Msg
+propmtView answer numGuesses lastGuess =
+    let
+        show = numGuesses <= 5
+        res = countBullsCows answer (lastGuess |> withDefault [])
+    in
+        div [ css 
+            [ position absolute
+            , top zero
+            , width (pct 50)
+            , height (pct 40)
+            , pointerEvents none
+            , centerChildren
+            , mainTextStyle
+            , opacity <| num <| if show then 1 else 0
+            , transition
+            [ Tr.opacity 300 ]
+            ]]
+            [ div []
+                (case numGuesses of
+                  0 -> welcomePrompt
+                  1 -> firstGuessPrompt (lastGuess |> withDefault []) res
+                  2 -> secondGuessPrompt (lastGuess |> withDefault []) res
+                  3 -> thirdGuessPrompt (lastGuess |> withDefault []) res
+                  4 -> fourthGuessPrompt (lastGuess |> withDefault []) res
+                  5 -> goodLuckPrompt
+                  _ ->
+                    []
+                )
+            ]
 
 view : Model -> Browser.Document Msg
 view model =
@@ -199,15 +447,17 @@ view model =
                   [ GSS.html [ height (pct 100) ]
                   , GSS.body [ height (pct 100) ]
                   , GSS.everything [ boxSizing borderBox ]
+                  , GSS.p [ marginTop (px 10), marginBottom (px 10) ]
                   ]
                 , div [css
                     [ width (px 230)
-                    , border3 (px 1) solid (hsl 0 0 0.95)
+                    , debugBorder
                     , displayFlex
                     , flexDirection column
                     ]]
                     [ div [ css
-                      [ height (px <| rowHeight * (toFloat (numGuesses + 1)) + 1)
+                      [ overflow hidden
+                      , height (px <| rowHeight * (toFloat <| if numGuesses == 0 then 0 else (numGuesses + 1)) + 1)
                       , transition
                         [ Tr.height 150 ]
                       ]]
@@ -237,7 +487,7 @@ view model =
                             , css
                                 [ flex2 (num 1) (num 1)
                                 , minWidth (px 0)
-                                , padding4 (em 0.3) zero (em 0.3) (em 0.45)
+                                , padding4 (em 0.4) zero (em 0.4) (em 0.45)
                                 , border zero
                                 , borderBottom3 (px 2) solid (hsl 0 0 0.5)
                                 , outline none
@@ -252,10 +502,7 @@ view model =
                                 )
                             , css
                             [ mainTextStyle
-                            , position absolute
-                            , top zero
-                            , bottom zero
-                            , right zero
+                            , dockRight
                             , width (em 1.6)
                             , backgroundColor transparent
                             , border zero
@@ -273,66 +520,8 @@ view model =
                     , div []
                         [ text model.message ]
                     ]
-                , div [ css
-                  [ position absolute
-                  , overflow hidden
-                  , right zero
-                  , top zero
-                  , bottom zero
-                  , backgroundColor (hsl 0 0 0.975)
-                  , rulesTextStyle
-                  , transition
-                    [ Tr.width rulesPanelOpenTime
-                    ]
-                  , width rulesClosedWidth
-                  , children
-                    [ GSS.class "revealHeader"
-                        [ opacity (num 1)
-                        , visibility visible
-                        , padding rulesPanelPadding
-                        , transition
-                          [ Tr.opacity rulesPanelOpenTime
-                          , Tr.visibility rulesPanelOpenTime
-                          ]
-                        , centerChildren
-                        ]
-                    , GSS.class "revealContent"
-                        [ opacity (num 0)
-                        , padding rulesPanelPadding
-                        , width rulesOpenWidth
-                        , transition
-                          [ Tr.opacity rulesPanelOpenTime
-                          ]
-                        , centerChildren 
-                        ]
-                    ]
-                  , hover
-                    [ width rulesOpenWidth
-                    , children
-                      [ GSS.class "revealHeader"
-                          [ opacity (num 0)
-                          , visibility hidden
-                          ]
-                      , GSS.class "revealContent"
-                          [ opacity (num 1)
-                          ]
-                      ]
-                    ]
-                  ]]
-                  [ div [ class "revealHeader", css [fillAllSpace] ] [ text "Rules" ]
-                  , div [ class "revealContent", css [height (pct 100)] ]
-                    [ div []
-                        [ p [] [ text "Computer picked up a random number (with a specified number of digits) where all digits are different - your goal is to guess it" ]
-                        , p [] [ text "Your guess has to be a number with the same number of digits and digits in your number should be different as well. For each of your guesses computer replies with a number of \"Cows\" and \"Bulls\", where"]
-                        , ul [ css [listStyle] ]
-                            [ li [] [ text "\"Cows\" means the number of correct digits but in the wrong position"]
-                            , li [] [ text "\"Bulls\" means the number of correct digits in the correct position"]
-                            ]
-                        , p [] [ text "Try to guess computer's number in the fewest moves possible!" ]
-                        , p [] [ text "Post your results in the comments:)" ]
-                        ]
-                    ]
-                  ]
+                , rulesView
+                , propmtView (model.answer |> withDefault []) numGuesses lastGuess
                 ] |> toUnstyled
             ]
         }
