@@ -23,6 +23,9 @@ import Html.Styled.Events exposing (onClick, onInput, onSubmit)
 str : Int -> String
 str = String.fromInt
 
+len : List a -> Int
+len = List.length
+
 getAtWithDefault : Int -> a -> List a -> a
 getAtWithDefault index default =
     List.Extra.getAt index >> withDefault default
@@ -61,18 +64,22 @@ main = Browser.document
     , subscriptions = (\_ -> Sub.none)
     }
 
-digitsCount = 4
+minDigitsCount = 3
+maxDigitsCount = 8
+initialDigitsCount = 4
+
 type alias Model =
     { answer: Maybe (List Int)
     --, message: String
     , guess: String
     , guesses: List (List Int)
+    , nextDigitsCount: Int
     , gamesCompleted: Int
     , numGuessesAcrossAllGames: Int
     , completedTutorial: Bool
     }
 
-generateAnswer =
+generateAnswer digitsCount =
     Random.generate Answer (Random.list digitsCount (Random.int 0 9))
 
 
@@ -82,11 +89,12 @@ init _ =
       --, message = ""
       , guess = ""
       , guesses = []
+      , nextDigitsCount = initialDigitsCount
       , gamesCompleted = 0
       , numGuessesAcrossAllGames = 0
       , completedTutorial = False
       }
-    , generateAnswer
+    , generateAnswer initialDigitsCount
     )
 
 resetGame : Model -> (Model, Cmd Msg)
@@ -96,7 +104,7 @@ resetGame model =
       , guess = ""
       , guesses = []
       }
-    , generateAnswer
+    , generateAnswer model.nextDigitsCount
     )
 
 type Msg
@@ -105,6 +113,7 @@ type Msg
     | GuessCheck
     | Restart
     | ShowTutorial Bool
+    | ChangeNextDigitsCount Int
 
 stringToDigits : String -> List Int
 stringToDigits s =
@@ -140,13 +149,13 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         Answer digits ->
-            if (digits |> List.Extra.unique |> List.length) == digitsCount then
+            if (digits |> List.Extra.unique |> List.length) == model.nextDigitsCount then
                 ( { model | answer = Just digits }
                 , Cmd.none
                 )
             else
                 ( model
-                , generateAnswer
+                , generateAnswer model.nextDigitsCount
                 )
         GuessChange newGuess ->
             let newGuessCleaned =
@@ -178,6 +187,13 @@ update msg model =
         ShowTutorial showTutorial ->
             ( { model
               | completedTutorial = not showTutorial
+              }
+            , Cmd.none
+            )
+
+        ChangeNextDigitsCount nextDigitsCount ->
+            ( { model
+              | nextDigitsCount = nextDigitsCount
               }
             , Cmd.none
             )
@@ -461,8 +477,8 @@ sideSection side title content =
     ]
 
 
-rulesView : Html Msg
-rulesView =
+rulesView : Int -> Html Msg
+rulesView digitsCount =
     sideSection Right "Rules"
         [ p [] [ text <| "Computer picked up " ++ str digitsCount ++ " different " ++ pluralize "digit" digitsCount ++ " - your goal is to guess them" ]
         , p [] [ text "Your guess has to consist of the same number of digits, also different. For each of your guesses computer replies with a number of \"Cows\" and \"Bulls\", where"]
@@ -475,8 +491,8 @@ rulesView =
         ]
 
 
-menuView : Int -> Int -> Bool -> Html Msg
-menuView gamesCompleted numGuessesAcrossAllGames completedTutorial = 
+menuView : Int -> Int -> Bool -> Int -> Html Msg
+menuView gamesCompleted numGuessesAcrossAllGames completedTutorial nextDigitsCount = 
     sideSection Left "Menu"
         [ p []
           [ input
@@ -488,8 +504,30 @@ menuView gamesCompleted numGuessesAcrossAllGames completedTutorial =
           , label
               [ Attr.for "showTutorial" ]
               [ text "Show tutorial" ]
-          , button [ onClick Restart, css [ buttonStyle ] ] [ text "Restart" ]
           ]
+        , p [] <|
+            div []
+            [ text "Number of digits"
+            , H.br [] []
+            , text "(in the next game)" ]
+            ::
+            (List.range minDigitsCount maxDigitsCount
+              |> List.map (\i ->
+                div []
+                [ input
+                  [ type_ "radio"
+                  , Attr.checked <| i == nextDigitsCount
+                  , onClick <| ChangeNextDigitsCount i
+                  , Attr.id <| "nextDigitsCount" ++ str i
+                  ] []
+                , label
+                  [ Attr.for <| "nextDigitsCount" ++ str i ]
+                  [ text <| str i]
+                ]
+              )
+            )
+        , p [] [ button [ onClick Restart, css [ buttonStyle ] ] [ text "Restart" ] ]
+          
         , div [ css [sideTitleStyle] ] [ text "Statistics" ]
         , p [] [ text <| "You have completed " ++ nThings "game" gamesCompleted]
         , p [] [ text <| "And made " ++ nThings "turn" numGuessesAcrossAllGames ++ " in total"]
@@ -513,18 +551,18 @@ promptBase : List (Html Msg) -> Html Msg
 promptBase =
     div [ css [promptContentStyle] ]
 
-welcomePrompt : Html Msg
-welcomePrompt =
+welcomePrompt : List Int -> Html Msg
+welcomePrompt answer =
     promptBase
-    [ div [] [ text <| "I picked " ++ str digitsCount ++ " different random digits" ]
+    [ div [] [ text <| "I picked " ++ (str <| len <| answer) ++ " different random digits" ]
     , div [] [ text <| "(for example: 2954, 0865, 3721)" ]
     , div [] [ text <| "Try to guess them!" ]
     ]
 
-initialPrompt : Html Msg
-initialPrompt =
+initialPrompt : List Int -> Html Msg
+initialPrompt answer =
     promptBase
-    [ div [] [ text <| "I picked " ++ str digitsCount ++ " different random digits" ]
+    [ div [] [ text <| "I picked " ++ (str <| len <| answer) ++ " different random digits" ]
     , div [] [ text <| "Try to guess them!" ]
     ]
 
@@ -712,22 +750,19 @@ propmtView answer guesses gameOver completedTutorial gamesCompleted =
                 , width (pct 45)
                 , height (pct 40)
                 , pointerEvents none
-                --, centerChildren
                 , mainTextStyle
-                --, opacity <| num <| if show then 1 else 0
-                --, transition [ Tr.opacity 300 ]
                 ]
             ] <|
             selectPrompt
                 [ (True, gameOver && not completedTutorial, luckyPrompt lastGuess)
                 , (True, gameOver, correctPrompt lastGuess gamesCompleted)
-                , (False, not completedTutorial && ng == 0, welcomePrompt)
+                , (False, not completedTutorial && ng == 0, welcomePrompt answer)
                 , (False, not completedTutorial && ng == 1, firstGuessPrompt answer (guesses |> getAtWithDefault 0 []))
                 , (False, not completedTutorial && ng == 2, secondGuessPrompt answer (guesses |> getAtWithDefault 1 []))
                 , (False, not completedTutorial && ng == 3, thirdGuessPrompt answer (guesses |> getAtWithDefault 2 []))
                 , (False, not completedTutorial && ng == 4, fourthGuessPrompt answer (guesses |> getAtWithDefault 3 []))
                 , (False, not completedTutorial && ng == 5, goodLuckPrompt)
-                , (False, ng == 0, initialPrompt)
+                , (False, ng == 0, initialPrompt answer)
                 ]
 
 view : Model -> Browser.Document Msg
@@ -738,6 +773,7 @@ view model =
                 "No digits generated so far"
             Just digits ->
                 String.join "" (List.map str digits)
+        digitsCount = model.answer |> withDefault [] |> len
         numGuesses = List.length model.guesses
         lastGuess = List.Extra.last model.guesses
         gameOver = 
@@ -826,8 +862,8 @@ view model =
                         )
                     -- , div [] [ text model.message ]
                     ]
-                , rulesView
-                , menuView model.gamesCompleted model.numGuessesAcrossAllGames model.completedTutorial
+                , rulesView digitsCount
+                , menuView model.gamesCompleted model.numGuessesAcrossAllGames model.completedTutorial model.nextDigitsCount
                 , propmtView
                     (model.answer |> withDefault [])
                     model.guesses
