@@ -1,7 +1,10 @@
+const sheep2people =
+	s => s.replaceAll('Sheep', 'People').replaceAll('sheep', 'people');
 
-// Reaplce all "sheep" with people on Google Images
+document.title = sheep2people(document.title);
+// Replace all "sheep" with people on Google Images titles
 for (const node of document.querySelectorAll('.VFACy')) {
-	node.textContent = node.textContent.replaceAll('Sheep', 'People').replaceAll('sheep', 'people')
+	node.textContent = sheep2people(node.textContent);
 }
 
 // Experiments
