@@ -1,0 +1,7 @@
+Saving game state to localStorage
+Main (guess-cows-bulls) table redesign
+
+Show tutorial checkbox styling
+Number of digits radiobuttons styling
+
+Computer prompts redesign
