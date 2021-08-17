@@ -13,7 +13,7 @@ import Css.Transitions exposing (transition)
 import Css.Global as GSS exposing (children, descendants)
 -- import Html
 import Html.Styled as H
-import Html.Styled exposing (text, div, span, a, p, th, tr, td, ul, li, input, button, form, Html, h1, toUnstyled)
+import Html.Styled exposing (text, div, span, a, p, th, tr, td, ul, li, input, button, label, form, Html, h1, toUnstyled)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Attributes exposing (id, class, value, type_, href, css)
 import Html.Styled.Events exposing (onClick, onInput, onSubmit)
@@ -104,6 +104,7 @@ type Msg
     | GuessChange String
     | GuessCheck
     | Restart
+    | ShowTutorial Bool
 
 stringToDigits : String -> List Int
 stringToDigits s =
@@ -173,6 +174,13 @@ update msg model =
                 )
         Restart ->
             resetGame model
+    
+        ShowTutorial showTutorial ->
+            ( { model
+              | completedTutorial = not showTutorial
+              }
+            , Cmd.none
+            )
 
 
 --------------- Views ---------------
@@ -467,11 +475,20 @@ rulesView =
         ]
 
 
-menuView : Int -> Int -> Html Msg
-menuView gamesCompleted numGuessesAcrossAllGames = 
+menuView : Int -> Int -> Bool -> Html Msg
+menuView gamesCompleted numGuessesAcrossAllGames completedTutorial = 
     sideSection Left "Menu"
         [ p []
-          [ button [ onClick Restart, css [ buttonStyle ] ] [ text "Restart" ]
+          [ input
+            [ type_ "checkbox"
+            , Attr.checked <| not completedTutorial
+            , onClick <| ShowTutorial completedTutorial
+            , Attr.id "showTutorial"
+            ] []
+          , label
+              [ Attr.for "showTutorial" ]
+              [ text "Show tutorial" ]
+          , button [ onClick Restart, css [ buttonStyle ] ] [ text "Restart" ]
           ]
         , div [ css [sideTitleStyle] ] [ text "Statistics" ]
         , p [] [ text <| "You have completed " ++ nThings "game" gamesCompleted]
@@ -729,7 +746,7 @@ view model =
                (_, Nothing) -> False
                (Just guess, Just answerDigits) -> guess == answerDigits
     in
-        { title = "Bulls and Cows - number guessing game" -- answerText
+        { title = answerText -- "Bulls and Cows - number guessing game" -- 
         , body =
             [ div [css [centerChildren, height (pct 100)]]
                 [ GSS.global
@@ -810,7 +827,7 @@ view model =
                     -- , div [] [ text model.message ]
                     ]
                 , rulesView
-                , menuView model.gamesCompleted model.numGuessesAcrossAllGames
+                , menuView model.gamesCompleted model.numGuessesAcrossAllGames model.completedTutorial
                 , propmtView
                     (model.answer |> withDefault [])
                     model.guesses
