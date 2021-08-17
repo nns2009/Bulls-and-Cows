@@ -10,15 +10,14 @@ import Browser
 import Css as CSS exposing (..)
 import Css.Transitions as Tr
 import Css.Transitions exposing (transition)
-import Css.Global as GSS exposing (children)
+import Css.Global as GSS exposing (children, descendants)
 -- import Html
 import Html.Styled as H
 import Html.Styled exposing (text, div, span, a, p, th, tr, td, ul, li, input, button, form, Html, h1, toUnstyled)
 import Html.Styled.Attributes as Attr
 import Html.Styled.Attributes exposing (id, class, value, type_, href, css)
 import Html.Styled.Events exposing (onClick, onInput, onSubmit)
-import Debug exposing (toString)
-import Css.Global exposing (descendants)
+-- import Debug exposing (toString)
 
 -- Common
 str : Int -> String
@@ -500,7 +499,7 @@ promptBase =
 welcomePrompt : Html Msg
 welcomePrompt =
     promptBase
-    [ div [] [ text <| "I picked " ++ (toString digitsCount) ++ " different random digits" ]
+    [ div [] [ text <| "I picked " ++ str digitsCount ++ " different random digits" ]
     , div [] [ text <| "(for example: 2954, 0865, 3721)" ]
     , div [] [ text <| "Try to guess them!" ]
     ]
@@ -508,7 +507,7 @@ welcomePrompt =
 initialPrompt : Html Msg
 initialPrompt =
     promptBase
-    [ div [] [ text <| "I picked " ++ (toString digitsCount) ++ " different random digits" ]
+    [ div [] [ text <| "I picked " ++ str digitsCount ++ " different random digits" ]
     , div [] [ text <| "Try to guess them!" ]
     ]
 
@@ -721,7 +720,7 @@ view model =
             Nothing ->
                 "No digits generated so far"
             Just digits ->
-                String.join "" (List.map toString digits)
+                String.join "" (List.map str digits)
         numGuesses = List.length model.guesses
         lastGuess = List.Extra.last model.guesses
         gameOver = 
@@ -734,7 +733,7 @@ view model =
         , body =
             [ div [css [centerChildren, height (pct 100)]]
                 [ GSS.global
-                  [ GSS.html [ height (pct 100) ]
+                  [ GSS.html [ height (pct 100), backgroundColor (hsl 0 0 1) ]
                   , GSS.body [ height (pct 100) ]
                   , GSS.everything
                     [ boxSizing borderBox
