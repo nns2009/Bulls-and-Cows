@@ -1,5 +1,6 @@
 module Main exposing (..)
 
+import Tuple
 import List.Extra
 import Maybe exposing (withDefault)
 import Random
@@ -23,6 +24,10 @@ import Css.Global exposing (descendants)
 str : Int -> String
 str = String.fromInt
 
+getAtWithDefault : Int -> a -> List a -> a
+getAtWithDefault index default =
+    List.Extra.getAt index >> withDefault default
+
 pluralize : String -> Int -> String
 pluralize string count =
     if count == 1 then
@@ -40,6 +45,12 @@ pluralizeIs count =
         "is"
     else
         "are"
+
+-- Text pluralization
+nCows = nThings "cow"
+nBulls = nThings "bull"
+nDigits = nThings "digit"
+
 
 -- Game Logic
 
@@ -163,6 +174,12 @@ update msg model =
                 )
         Restart ->
             resetGame model
+
+
+--------------- Views ---------------
+
+gameCreationVideoLink =
+    "https://youtu.be/aP9eKrnyxe4"
 
 debugBorder = batch
     [ --border3 (px 1) solid (hsl 0 0 0.95)
@@ -440,13 +457,13 @@ sideSection side title content =
 rulesView : Html Msg
 rulesView =
     sideSection Right "Rules"
-        [ p [] [ text "Computer picked up a random number (with a specified number of digits) where all digits are different - your goal is to guess it" ]
-        , p [] [ text "Your guess has to be a number with the same number of digits and digits in your number should be different as well. For each of your guesses computer replies with a number of \"Cows\" and \"Bulls\", where"]
+        [ p [] [ text <| "Computer picked up " ++ str digitsCount ++ " different " ++ pluralize "digit" digitsCount ++ " - your goal is to guess them" ]
+        , p [] [ text "Your guess has to consist of the same number of digits, also different. For each of your guesses computer replies with a number of \"Cows\" and \"Bulls\", where"]
         , ul [ css [listStyle] ]
             [ li [] [ text "\"Cows\" means the number of correct digits but in the wrong position"]
             , li [] [ text "\"Bulls\" means the number of correct digits in the correct position"]
             ]
-        , p [] [ text "Try to guess computer's number in the fewest moves possible!" ]
+        , p [] [ text "Try to guess computer's digits in the fewest moves possible!" ]
         , p [] [ text "Post your results in the comments:)" ]
         ]
 
@@ -462,21 +479,27 @@ menuView gamesCompleted numGuessesAcrossAllGames =
         , p [] [ text <| "And made " ++ nThings "turn" numGuessesAcrossAllGames ++ " in total"]
         , div [ css [sideTitleStyle] ] [ text "About" ]
         , p [] [ text "Game was created in Elm programming language. Watch how it was made here:"]
-        , a [ href "https://youtu.be/aP9eKrnyxe4", Attr.target "_blank", css [linkStyle] ]
-            [ text "https://youtu.be/aP9eKrnyxe4" ]
+        , a [ href gameCreationVideoLink, Attr.target "_blank", css [linkStyle] ]
+            [ text gameCreationVideoLink ]
         ]
 
 
 --------------- Computer prompts ---------------
 
--- Text pluralization
-nCows = nThings "cow"
-nBulls = nThings "bull"
-nDigits = nThings "digit"
+
+promptContentStyle = batch
+    [ position relative
+    , zIndex (int 2)
+    , pointerEvents auto
+    ]
+
+promptBase : List (Html Msg) -> Html Msg
+promptBase =
+    div [ css [promptContentStyle] ]
 
 welcomePrompt : Html Msg
 welcomePrompt =
-    div []
+    promptBase
     [ div [] [ text <| "I picked " ++ (toString digitsCount) ++ " different random digits" ]
     , div [] [ text <| "(for example: 2954, 0865, 3721)" ]
     , div [] [ text <| "Try to guess them!" ]
@@ -484,16 +507,41 @@ welcomePrompt =
 
 initialPrompt : Html Msg
 initialPrompt =
-    div []
+    promptBase
     [ div [] [ text <| "I picked " ++ (toString digitsCount) ++ " different random digits" ]
     , div [] [ text <| "Try to guess them!" ]
     ]
+
+luckyPrompt : List Int -> Html Msg
+luckyPrompt guess =
+    promptBase
+    [ div [] [ text <| digitsToString guess ++ " is correct!" ]
+    , div [] [ text <| "You are lucky - you were not supposed to guess the number so quickly in your first games:)"]
+    , div [] [ text <| "Play again"]
+    ]
+
+correctPrompt : List Int -> Int -> Html Msg
+correctPrompt guess gamesCompleted =
+    promptBase <|
+        [ div [] [ text <| digitsToString guess ++ " is correct!"]
+        , div [] [ text <| "Nice job:)" ]
+        ] ++ 
+        if (gamesCompleted |> modBy 10) == 0 then
+            [ div [] [ text <| "You have completed " ++ str gamesCompleted ++ " rounds" ]
+            , div [] [ text <| "You seem to enjoy the game:) You might also enjoy watching a video about how it was made:" ]
+            , div []
+                [ a [ href gameCreationVideoLink, Attr.target "_blank", css [linkStyle] ]
+                    [ text gameCreationVideoLink ]
+                ]
+            ]
+        else
+            []
 
 firstGuessPrompt : List Int -> List Int -> Html Msg
 firstGuessPrompt answer guess =
     let { cows, bulls } = countBullsCows answer guess
     in
-        div []
+        promptBase
         [ div [] [ text (digitsToString guess ++ "?")]
         , div [] [ text "Good guess!" ]
         , div [] [ text <| "My response is " ++ nCows cows ++ " and " ++ nBulls bulls ++ ", which means there " ++ pluralizeIs cows ]
@@ -509,8 +557,8 @@ secondGuessPrompt answer guess =
     let { cows, bulls } = countBullsCows answer guess
         correct = cows + bulls
     in
-        div []
-        [ div [] [ text (digitsToString guess ++ "? - Interesting")]
+        promptBase
+        [ div [] [ text <| digitsToString guess ++ "? - Interesting"]
         , div [] [ text <| nCows cows ++ " and " ++ nBulls bulls ++ ", which as before means there " ++ pluralizeIs correct ++ " " ++ str cows ++ "+" ++ str bulls ++ "=" ++ str correct ++ " " ++ pluralize "digit" correct ++ " that you guessed correctly:" ]
         , ul [ css [listStyle] ]
             [ li [] [ text <| nDigits cows ++ " in the wrong position and" ]
@@ -524,7 +572,7 @@ thirdGuessPrompt answer guess =
     let { cows, bulls } = countBullsCows answer guess
         --correct = cows + bulls
     in
-        div []
+        promptBase
         [ div [] [ text <| digitsToString guess ++ " - " ++ nCows cows ++ " and " ++ nBulls bulls ]
         , ul [ css [listStyle] ]
             [ li [] [ text <| nDigits cows ++ " in wrong position" ]
@@ -538,14 +586,14 @@ fourthGuessPrompt answer guess =
     let { cows, bulls } = countBullsCows answer guess
         --correct = cows + bulls
     in
-        div []
+        promptBase
         [ div [] [ text <| digitsToString guess ++ " - " ++ nCows cows ++ " and " ++ nBulls bulls ]
         , div [] [ text "Continue guessing until you guess the correct number" ]
         ]
 
 goodLuckPrompt : Html Msg
 goodLuckPrompt =
-    div []
+    promptBase
     [ div [] [ text "Good luck!" ]
     , div [] [ text "Feel free to refer to the rules at the right side if needed" ]
     ]
@@ -590,11 +638,54 @@ orderStyle order =
         EQ -> fullHeight
         GT -> closedAbove
 
-propmtView : List Int -> List (List Int) -> Bool -> Html Msg
-propmtView answer guesses completedTutorial =
+boolStyle show =
+    case show of
+        False -> closedBelow
+        True -> fullHeight
+
+selectPrompt : List (Bool, Bool, Html Msg) -> List (Html Msg)
+selectPrompt prompts =
+    let selectPromptInner shown restPrompts =
+          case restPrompts of
+            [] -> []
+            (forceBelow, isOpen, promptView) :: remainingPrompts ->
+                div [ css
+                    [ if isOpen && not shown then
+                        fullHeight
+                      else if shown || forceBelow then
+                        closedBelow
+                      else
+                        closedAbove
+                    , centerChildren
+                    , secondaryTextStyle]
+                    ]
+                    [ div [ css [ position relative ] ]
+                        [ div [ css
+                            [ position absolute
+                            , top (px -20)
+                            , bottom (px -20)
+                            , left (px -150)
+                            , right (px -150)
+                            , zIndex (int 1)
+                            , backgroundColor (rgba 255 255 255 0.8)
+                            , border3 (px 2) solid (hsl 0 0 1)
+                            , property "backdrop-filter" "blur(1.2px)" -- Doesn't work in Firefox
+                            ]] []
+                          , promptView
+                        ]
+                    ]
+                :: selectPromptInner (shown || isOpen) remainingPrompts
+    
+    in
+        selectPromptInner False prompts
+
+
+propmtView : List Int -> List (List Int) -> Bool -> Bool -> Int -> Html Msg
+propmtView answer guesses gameOver completedTutorial gamesCompleted =
     let
-        numGuesses = List.length guesses
-        nGuessesStyle n = orderStyle <| compare numGuesses n
+        ng = List.length guesses
+        lastGuess = guesses |> List.Extra.last |> withDefault []
+        nGuessesStyle n = orderStyle <| compare ng n
         prompt n child =
             div [ css [nGuessesStyle n, centerChildren, secondaryTextStyle] ]
                 [ child ]
@@ -611,16 +702,16 @@ propmtView answer guesses completedTutorial =
                 --, transition [ Tr.opacity 300 ]
                 ]
             ] <|
-            if not completedTutorial then
-                [ prompt 0 <| welcomePrompt
-                , prompt 1 <| firstGuessPrompt answer (guesses |> List.Extra.getAt 0 |> withDefault [])
-                , prompt 2 <| secondGuessPrompt answer (guesses |> List.Extra.getAt 1 |> withDefault [])
-                , prompt 3 <| thirdGuessPrompt answer (guesses |> List.Extra.getAt 2 |> withDefault [])
-                , prompt 4 <| fourthGuessPrompt answer (guesses |> List.Extra.getAt 3 |> withDefault [])
-                , prompt 5 <| goodLuckPrompt
-                ]
-            else
-                [ prompt 0 <| initialPrompt
+            selectPrompt
+                [ (True, gameOver && not completedTutorial, luckyPrompt lastGuess)
+                , (True, gameOver, correctPrompt lastGuess gamesCompleted)
+                , (False, not completedTutorial && ng == 0, welcomePrompt)
+                , (False, not completedTutorial && ng == 1, firstGuessPrompt answer (guesses |> getAtWithDefault 0 []))
+                , (False, not completedTutorial && ng == 2, secondGuessPrompt answer (guesses |> getAtWithDefault 1 []))
+                , (False, not completedTutorial && ng == 3, thirdGuessPrompt answer (guesses |> getAtWithDefault 2 []))
+                , (False, not completedTutorial && ng == 4, fourthGuessPrompt answer (guesses |> getAtWithDefault 3 []))
+                , (False, not completedTutorial && ng == 5, goodLuckPrompt)
+                , (False, ng == 0, initialPrompt)
                 ]
 
 view : Model -> Browser.Document Msg
@@ -639,7 +730,7 @@ view model =
                (_, Nothing) -> False
                (Just guess, Just answerDigits) -> guess == answerDigits
     in
-        { title = answerText
+        { title = "Bulls and Cows - number guessing game" -- answerText
         , body =
             [ div [css [centerChildren, height (pct 100)]]
                 [ GSS.global
@@ -721,7 +812,12 @@ view model =
                     ]
                 , rulesView
                 , menuView model.gamesCompleted model.numGuessesAcrossAllGames
-                , propmtView (model.answer |> withDefault []) model.guesses model.completedTutorial
+                , propmtView
+                    (model.answer |> withDefault [])
+                    model.guesses
+                    gameOver
+                    model.completedTutorial
+                    model.gamesCompleted
                 ] |> toUnstyled
             ]
         }
