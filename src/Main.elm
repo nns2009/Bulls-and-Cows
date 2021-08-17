@@ -59,6 +59,7 @@ type alias Model =
     , guesses: List (List Int)
     , gamesCompleted: Int
     , numGuessesAcrossAllGames: Int
+    , completedTutorial: Bool
     }
 
 generateAnswer =
@@ -73,6 +74,7 @@ init _ =
       , guesses = []
       , gamesCompleted = 0
       , numGuessesAcrossAllGames = 0
+      , completedTutorial = False
       }
     , generateAnswer
     )
@@ -148,12 +150,14 @@ update msg model =
                     case model.answer of
                         Nothing -> False
                         Just answerDigits -> guessParsed == answerDigits
+                numGuesses = List.length model.guesses + 1 -- +1 to account for the last guess
             in
                 ( { model 
                   | guesses = model.guesses ++ [guessParsed]
                   , guess = ""
                   , gamesCompleted = model.gamesCompleted + (if gameOver then 1 else 0)
                   , numGuessesAcrossAllGames = model.numGuessesAcrossAllGames + 1
+                  , completedTutorial = model.completedTutorial || (gameOver && numGuesses >= 5)
                   }
                 , Cmd.none
                 )
@@ -470,10 +474,18 @@ nCows = nThings "cow"
 nBulls = nThings "bull"
 nDigits = nThings "digit"
 
+welcomePrompt : Html Msg
 welcomePrompt =
     div []
     [ div [] [ text <| "I picked " ++ (toString digitsCount) ++ " different random digits" ]
     , div [] [ text <| "(for example: 2954, 0865, 3721)" ]
+    , div [] [ text <| "Try to guess them!" ]
+    ]
+
+initialPrompt : Html Msg
+initialPrompt =
+    div []
+    [ div [] [ text <| "I picked " ++ (toString digitsCount) ++ " different random digits" ]
     , div [] [ text <| "Try to guess them!" ]
     ]
 
@@ -578,8 +590,8 @@ orderStyle order =
         EQ -> fullHeight
         GT -> closedAbove
 
-propmtView : List Int -> List (List Int) -> Html Msg
-propmtView answer guesses =
+propmtView : List Int -> List (List Int) -> Bool -> Html Msg
+propmtView answer guesses completedTutorial =
     let
         numGuesses = List.length guesses
         nGuessesStyle n = orderStyle <| compare numGuesses n
@@ -598,8 +610,8 @@ propmtView answer guesses =
                 --, opacity <| num <| if show then 1 else 0
                 --, transition [ Tr.opacity 300 ]
                 ]
-            ]
-            --[ div []
+            ] <|
+            if not completedTutorial then
                 [ prompt 0 <| welcomePrompt
                 , prompt 1 <| firstGuessPrompt answer (guesses |> List.Extra.getAt 0 |> withDefault [])
                 , prompt 2 <| secondGuessPrompt answer (guesses |> List.Extra.getAt 1 |> withDefault [])
@@ -607,7 +619,9 @@ propmtView answer guesses =
                 , prompt 4 <| fourthGuessPrompt answer (guesses |> List.Extra.getAt 3 |> withDefault [])
                 , prompt 5 <| goodLuckPrompt
                 ]
-            --]
+            else
+                [ prompt 0 <| initialPrompt
+                ]
 
 view : Model -> Browser.Document Msg
 view model =
@@ -707,7 +721,7 @@ view model =
                     ]
                 , rulesView
                 , menuView model.gamesCompleted model.numGuessesAcrossAllGames
-                , propmtView (model.answer |> withDefault []) model.guesses
+                , propmtView (model.answer |> withDefault []) model.guesses model.completedTutorial
                 ] |> toUnstyled
             ]
         }
