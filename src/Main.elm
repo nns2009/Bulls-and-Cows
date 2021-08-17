@@ -67,9 +67,11 @@ main = Browser.document
 minDigitsCount = 3
 maxDigitsCount = 8
 initialDigitsCount = 4
+exampleAnswerCount = 3
 
 type alias Model =
     { answer: Maybe (List Int)
+    , exampleAnswers: List (List Int)
     --, message: String
     , guess: String
     , guesses: List (List Int)
@@ -80,12 +82,22 @@ type alias Model =
     }
 
 generateAnswer digitsCount =
-    Random.generate Answer (Random.list digitsCount (Random.int 0 9))
+    Random.generate Answer <| Random.list digitsCount (Random.int 0 9)
 
+generateExampleAnswer digitsCount =
+    Random.generate ExampleAnswer <| Random.list digitsCount (Random.int 0 9)
+
+newGameCommands : Int -> Cmd Msg
+newGameCommands digitsCount =
+    Cmd.batch
+        ( generateAnswer digitsCount
+        :: (List.range 1 exampleAnswerCount |> List.map (\_ -> generateExampleAnswer digitsCount))
+        )
 
 init : flags -> (Model, Cmd Msg)
 init _ = 
     ( { answer = Nothing
+      , exampleAnswers = []
       --, message = ""
       , guess = ""
       , guesses = []
@@ -94,21 +106,23 @@ init _ =
       , numGuessesAcrossAllGames = 0
       , completedTutorial = False
       }
-    , generateAnswer initialDigitsCount
+    , newGameCommands initialDigitsCount
     )
 
 resetGame : Model -> (Model, Cmd Msg)
 resetGame model =
     ( { model
       | answer = Nothing
+      , exampleAnswers = []
       , guess = ""
       , guesses = []
       }
-    , generateAnswer model.nextDigitsCount
+    , newGameCommands model.nextDigitsCount
     )
 
 type Msg
     = Answer (List Int)
+    | ExampleAnswer (List Int)
     | GuessChange String
     | GuessCheck
     | Restart
@@ -144,12 +158,14 @@ countBullsCows digitsA digitsB =
             - bulls
     in { bulls = bulls , cows = cows }
 
+isCorrectAnswer digits =
+    (digits |> List.Extra.unique |> len) == (digits |> len)
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         Answer digits ->
-            if (digits |> List.Extra.unique |> List.length) == model.nextDigitsCount then
+            if isCorrectAnswer digits then
                 ( { model | answer = Just digits }
                 , Cmd.none
                 )
@@ -157,6 +173,16 @@ update msg model =
                 ( model
                 , generateAnswer model.nextDigitsCount
                 )
+        ExampleAnswer digits ->
+            if isCorrectAnswer digits then
+                ( { model | exampleAnswers = digits :: model.exampleAnswers }
+                , Cmd.none
+                )
+            else
+                ( model
+                , generateExampleAnswer model.nextDigitsCount
+                )
+
         GuessChange newGuess ->
             let newGuessCleaned =
                   newGuess |> String.filter Char.isDigit
@@ -551,11 +577,11 @@ promptBase : List (Html Msg) -> Html Msg
 promptBase =
     div [ css [promptContentStyle] ]
 
-welcomePrompt : List Int -> Html Msg
-welcomePrompt answer =
+welcomePrompt : List Int -> List (List Int) -> Html Msg
+welcomePrompt answer exampleAnswers =
     promptBase
     [ div [] [ text <| "I picked " ++ (str <| len <| answer) ++ " different random digits" ]
-    , div [] [ text <| "(for example: 2954, 0865, 3721)" ]
+    , div [] [ text <| "(for example: " ++ String.join ", " (exampleAnswers |> List.map digitsToString) ++ ")" ]
     , div [] [ text <| "Try to guess them!" ]
     ]
 
@@ -734,8 +760,8 @@ selectPrompt prompts =
         selectPromptInner False prompts
 
 
-propmtView : List Int -> List (List Int) -> Bool -> Bool -> Int -> Html Msg
-propmtView answer guesses gameOver completedTutorial gamesCompleted =
+propmtView : List Int -> List (List Int) -> List (List Int) -> Bool -> Bool -> Int -> Html Msg
+propmtView answer guesses exampleAnswers gameOver completedTutorial gamesCompleted =
     let
         ng = List.length guesses
         lastGuess = guesses |> List.Extra.last |> withDefault []
@@ -756,7 +782,7 @@ propmtView answer guesses gameOver completedTutorial gamesCompleted =
             selectPrompt
                 [ (True, gameOver && not completedTutorial, luckyPrompt lastGuess)
                 , (True, gameOver, correctPrompt lastGuess gamesCompleted)
-                , (False, not completedTutorial && ng == 0, welcomePrompt answer)
+                , (False, not completedTutorial && ng == 0, welcomePrompt answer exampleAnswers)
                 , (False, not completedTutorial && ng == 1, firstGuessPrompt answer (guesses |> getAtWithDefault 0 []))
                 , (False, not completedTutorial && ng == 2, secondGuessPrompt answer (guesses |> getAtWithDefault 1 []))
                 , (False, not completedTutorial && ng == 3, thirdGuessPrompt answer (guesses |> getAtWithDefault 2 []))
@@ -867,6 +893,7 @@ view model =
                 , propmtView
                     (model.answer |> withDefault [])
                     model.guesses
+                    model.exampleAnswers
                     gameOver
                     model.completedTutorial
                     model.gamesCompleted
