@@ -12,9 +12,9 @@ import Css.Transitions exposing (transition)
 import Css.Global as GSS exposing (children)
 -- import Html
 import Html.Styled as H
-import Html.Styled exposing (text, div, span, p, th, tr, td, ul, li, input, button, form, Html, h1, toUnstyled)
+import Html.Styled exposing (text, div, span, a, p, th, tr, td, ul, li, input, button, form, Html, h1, toUnstyled)
 import Html.Styled.Attributes as Attr
-import Html.Styled.Attributes exposing (id, class, value, type_, css)
+import Html.Styled.Attributes exposing (id, class, value, type_, href, css)
 import Html.Styled.Events exposing (onClick, onInput, onSubmit)
 import Debug exposing (toString)
 import Css.Global exposing (descendants)
@@ -54,18 +54,33 @@ main = Browser.document
 digitsCount = 4
 type alias Model =
     { answer: Maybe (List Int)
-    , message: String
+    --, message: String
     , guess: String
     , guesses: List (List Int)
+    , gamesCompleted: Int
+    , numGuessesAcrossAllGames: Int
     }
 
 generateAnswer =
     Random.generate Answer (Random.list digitsCount (Random.int 0 9))
 
+
 init : flags -> (Model, Cmd Msg)
-init _ =
+init _ = 
     ( { answer = Nothing
-      , message = ""
+      --, message = ""
+      , guess = ""
+      , guesses = []
+      , gamesCompleted = 0
+      , numGuessesAcrossAllGames = 0
+      }
+    , generateAnswer
+    )
+
+resetGame : Model -> (Model, Cmd Msg)
+resetGame model =
+    ( { model
+      | answer = Nothing
       , guess = ""
       , guesses = []
       }
@@ -129,15 +144,21 @@ update msg model =
                 )
         GuessCheck ->
             let guessParsed = model.guess |> stringToDigits
+                gameOver = 
+                    case model.answer of
+                        Nothing -> False
+                        Just answerDigits -> guessParsed == answerDigits
             in
                 ( { model 
                   | guesses = model.guesses ++ [guessParsed]
                   , guess = ""
+                  , gamesCompleted = model.gamesCompleted + (if gameOver then 1 else 0)
+                  , numGuessesAcrossAllGames = model.numGuessesAcrossAllGames + 1
                   }
                 , Cmd.none
                 )
         Restart ->
-            init ()
+            resetGame model
 
 debugBorder = batch
     [ --border3 (px 1) solid (hsl 0 0 0.95)
@@ -177,6 +198,7 @@ dockTop = batch
     ]
 
 -- Text styles
+baseTransitionDuration = 200
 mainFontFamily = "Calibri"
 mainFontSize = px 24
 
@@ -199,9 +221,80 @@ menuTitleTextStyle = batch
     , color (hsl 0 0 0.4)
     ]
 
+linkStyle = batch
+    [ baseTextStyle
+    , cursor pointer
+    , textDecoration none
+    , color (hsl 194 1 0.42)
+    , transition
+      [ Tr.color baseTransitionDuration ]
+    , hover
+      [  color (hsl 194 1 0.24) ]
+    , active
+      [ color (hsl 194 1 0.16) ]
+    ]
+
 listStyle = batch
     [ paddingLeft (em 1)
-    , marginTop (px 10), marginBottom (px 10) ]
+    , marginTop (px 10), marginBottom (px 10)
+    ]
+
+--------------- UI style ---------------
+
+uiTransitionDuration = 300
+buttonTransitionDuration = uiTransitionDuration
+
+buttonVerticalPadding = px 12
+buttonStyle = batch
+    [ mainTextStyle
+    , width (pct 100)
+    , paddingTop buttonVerticalPadding
+    , paddingBottom buttonVerticalPadding
+    , border zero
+    , borderLeft3 (px 2) solid (hsl 0 0 0.3)
+    , borderRight3 (px 2) solid (hsl 0 0 0.3)
+    , color (hsl 0 0 0.1)
+    , cursor pointer
+    , transition
+      [ Tr.backgroundColor buttonTransitionDuration
+      , Tr.borderColor buttonTransitionDuration
+      , Tr.color buttonTransitionDuration
+      ]
+    , backgroundColor (hsl 0 0 0.96)
+    , hover
+      [ backgroundColor (hsl 194 1 0.88)
+      , borderColor (hsl 194 1 0.26)
+      , color (hsl 194 1 0.11)
+      ]
+    , active
+      [ backgroundColor (hsl 194 1 0.72)
+      , borderColor (hsl 194 1 0.23)
+      , color (hsl 194 1 0.06)
+      ]
+    ]
+
+inputTransitionDuration = uiTransitionDuration
+inputStyle = batch
+    [ mainTextStyle
+    , padding4 (em 0.4) zero (em 0.4) (em 0.45)
+    , outline none
+    , cursor text_
+    , border zero
+    , borderBottom3 (px 2) solid (hsl 0 0 0.65)
+    , transition
+      [ Tr.borderColor inputTransitionDuration ]
+    , hover
+      [ borderColor (hsl 0 0 0.52)
+      ]
+    , focus
+      [ borderColor (hsl 0 0 0.4)
+      ]
+    , active
+      [ borderColor (hsl 0 0 0.1)
+      ]
+    ]
+
+--------------- Table style ---------------
 
 rowHeight = 50
 rowStyle = batch
@@ -218,19 +311,26 @@ headerCellStyle = batch
     , fontSize (em 0.7)
     ]
 
-rulesPanelOpenTime = 360
-rulesClosedWidth = px 100
-rulesOpenWidth = px 290
-rulesTitleTranisionDistance = 18
-rulesPanelPadding = em 1
-rulesTextStyle = batch
+--------------- Side section styles ---------------
+sidePanelOpenTime = 360
+sideClosedWidth = px 100
+sideOpenWidth = px 290
+sideTitleTranisionDistance = 18
+sidePanelPadding = em 1
+sideTitleStyle = batch
+    [ textAlign center
+    , fontWeight bold
+    ]
+sideTextStyle = batch
     [ fontSize (em 1.2)
     , fontFamilies [ mainFontFamily ]
     ]
 
 
--- Debug styles
+--------------- Debug styles ---------------
 debugBackgroundColor = rgb 255 200 200
+
+--------------- Views ---------------
 
 guessView : List Int -> List Int -> Html Msg
 guessView answer guess =
@@ -246,63 +346,59 @@ guessView answer guess =
       --  [ text (guessString ++ " - " ++ (str cows) ++ " cows, " ++ (str bulls) ++ " bulls")]
 
 
+--------------- Side sections ---------------
 
+type LeftRight = Left
+               | Right
 
-rulesView : Html Msg
-rulesView =
+sideSection : LeftRight -> String -> List (Html Msg) -> Html Msg
+sideSection side title content =
   div [ css
-    [ dockRight
+    [ if side == Left then dockLeft else dockRight
     , zIndex (int 4)
     , overflow hidden
     , backgroundColor (hsl 0 0 0.985)
-    , rulesTextStyle
+    , sideTextStyle
     , transition
-      [ Tr.width rulesPanelOpenTime
+      [ Tr.width sidePanelOpenTime
       ]
-    , width rulesClosedWidth
+    , width sideClosedWidth
     , descendants
       [ GSS.class "revealHeader"
         [ opacity (num 1)
         , visibility visible
-        , padding rulesPanelPadding
         , transition
-            [ Tr.opacity rulesPanelOpenTime
-            , Tr.visibility rulesPanelOpenTime
+            [ Tr.opacity sidePanelOpenTime
+            , Tr.visibility sidePanelOpenTime
             ]
-        , centerChildren
         ]
       , GSS.class "revealContent"
         [ opacity (num 0)
-        , padding rulesPanelPadding
-        , width rulesOpenWidth
         , transition
-            [ Tr.opacity rulesPanelOpenTime
-            ]
-        , centerChildren 
+            [ Tr.opacity sidePanelOpenTime ]
         ]
       , GSS.class "revealHeaderTitle"
         [ top (px 0)
         , transition
-            [ Tr.top rulesPanelOpenTime ]
+            [ Tr.top sidePanelOpenTime ]
         ]
       , GSS.class "revealContentTitle"
-        [ top (px rulesTitleTranisionDistance)
+        [ top (px sideTitleTranisionDistance)
         , transition 
-            [ Tr.top rulesPanelOpenTime ]
+            [ Tr.top sidePanelOpenTime ]
         ]
       ]
     , hover
-    [ width rulesOpenWidth
+    [ width sideOpenWidth
     , descendants
         [ GSS.class "revealHeader"
             [ opacity (num 0)
             , visibility hidden
             ]
         , GSS.class "revealContent"
-            [ opacity (num 1)
-            ]
+            [ opacity (num 1) ]
         , GSS.class "revealHeaderTitle"
-            [ top (px <| negate rulesTitleTranisionDistance) ]
+            [ top (px <| negate sideTitleTranisionDistance) ]
         , GSS.class "revealContentTitle"
             [ top (px 0) ]
         ]
@@ -312,18 +408,35 @@ rulesView =
       [ class "revealHeader"
       , css
         [ dockFull
+        , centerChildren
         , menuTitleTextStyle
         , fontSize (px 20)
         ]
       ]
       [ div [ class "revealHeaderTitle", css [ position relative ] ]
-          [ text "Rules" ]
+          [ text title ]
       ]
-    , div [ class "revealContent", css [height (pct 100)] ]
-      [ div []
-        [ div [ class "revealContentTitle", css [ textAlign center, position relative ] ]
-          [ H.b [] [ text "Rules" ] ]
-        , p [] [ text "Computer picked up a random number (with a specified number of digits) where all digits are different - your goal is to guess it" ]
+    , div
+      [ class "revealContent"
+      , css
+        [ height (pct 100)
+        , centerChildren 
+        , padding sidePanelPadding
+        , width sideOpenWidth
+        ]
+      ]
+      [ div [] <|
+            div [ class "revealContentTitle", css [ position relative, sideTitleStyle ] ]
+                [ text title ]
+            :: content
+      ]
+    ]
+
+
+rulesView : Html Msg
+rulesView =
+    sideSection Right "Rules"
+        [ p [] [ text "Computer picked up a random number (with a specified number of digits) where all digits are different - your goal is to guess it" ]
         , p [] [ text "Your guess has to be a number with the same number of digits and digits in your number should be different as well. For each of your guesses computer replies with a number of \"Cows\" and \"Bulls\", where"]
         , ul [ css [listStyle] ]
             [ li [] [ text "\"Cows\" means the number of correct digits but in the wrong position"]
@@ -332,8 +445,25 @@ rulesView =
         , p [] [ text "Try to guess computer's number in the fewest moves possible!" ]
         , p [] [ text "Post your results in the comments:)" ]
         ]
-      ]
-    ]
+
+
+menuView : Int -> Int -> Html Msg
+menuView gamesCompleted numGuessesAcrossAllGames = 
+    sideSection Left "Menu"
+        [ p []
+          [ button [ onClick Restart, css [ buttonStyle ] ] [ text "Restart" ]
+          ]
+        , div [ css [sideTitleStyle] ] [ text "Statistics" ]
+        , p [] [ text <| "You have completed " ++ nThings "game" gamesCompleted]
+        , p [] [ text <| "And made " ++ nThings "turn" numGuessesAcrossAllGames ++ " in total"]
+        , div [ css [sideTitleStyle] ] [ text "About" ]
+        , p [] [ text "Game was created in Elm programming language. Watch how it was made here:"]
+        , a [ href "https://youtu.be/aP9eKrnyxe4", Attr.target "_blank", css [linkStyle] ]
+            [ text "https://youtu.be/aP9eKrnyxe4" ]
+        ]
+
+
+--------------- Computer prompts ---------------
 
 -- Text pluralization
 nCows = nThings "cow"
@@ -501,7 +631,10 @@ view model =
                 [ GSS.global
                   [ GSS.html [ height (pct 100) ]
                   , GSS.body [ height (pct 100) ]
-                  , GSS.everything [ boxSizing borderBox ]
+                  , GSS.everything
+                    [ boxSizing borderBox
+                    , cursor default
+                    ]
                   , GSS.p [ marginTop (px 10), marginBottom (px 10) ]
                   ]
                 , div [css
@@ -542,11 +675,7 @@ view model =
                             , css
                                 [ flex2 (num 1) (num 1)
                                 , minWidth (px 0)
-                                , padding4 (em 0.4) zero (em 0.4) (em 0.45)
-                                , border zero
-                                , borderBottom3 (px 2) solid (hsl 0 0 0.5)
-                                , outline none
-                                , mainTextStyle
+                                , inputStyle
                                 ]
                             ] []
                         , button
@@ -563,19 +692,21 @@ view model =
                             , border zero
                             ]
                             ] [ text "?" ] ]
-                    , div [ css [mainTextStyle] ]
+                    , div [ css [secondaryTextStyle] ]
                         (if gameOver then
-                            [ div [] [ text "Correct!" ]
-                            , div [] [ text ("The number is " ++ answerText)]
-                            , div [] [ text ("You guessed it in " ++ (str <| List.length model.guesses) ++ " turns") ]
-                            , button [ onClick Restart, css [ mainTextStyle ] ] [ text "Play again"]
+                            [ p []
+                              [ div [] [ text "Correct!" ]
+                                , div [] [ text ("The number is " ++ answerText)]
+                                , div [] [ text ("You guessed it in " ++ (str <| List.length model.guesses) ++ " turns") ]
+                              ]
+                              , button [ onClick Restart, css [ buttonStyle ] ] [ text "Play again" ]
                             ]
                          else []
                         )
-                    , div []
-                        [ text model.message ]
+                    -- , div [] [ text model.message ]
                     ]
                 , rulesView
+                , menuView model.gamesCompleted model.numGuessesAcrossAllGames
                 , propmtView (model.answer |> withDefault []) model.guesses
                 ] |> toUnstyled
             ]
