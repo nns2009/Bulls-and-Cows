@@ -1,20 +1,28 @@
 const path = require('path');
 const webpack = require('webpack');
+const { CleanWebpackPlugin } = require("clean-webpack-plugin");
+const HtmlWebpackPlugin = require("html-webpack-plugin");
+
+let mode = "development";
+if (process.env.NODE_ENV === 'production') {
+	mode = 'production';
+}
 
 module.exports = {
+	mode,
+
+	output: {
+		path: path.resolve(__dirname, 'dist'),
+	},
+
 	module: {
 		rules: [
-			{
-				test: /\.html$/,
-				type: 'asset/resource'
-			}
-			,
 			{
 				test: /\.elm$/,
 				exclude: [/elm-stuff/, /node_modules/],
 
 				use: [
-					//{ loader: 'elm-hot-webpack-loader' },
+					{ loader: 'elm-hot-webpack-loader' },
 					{
 						loader: 'elm-webpack-loader',
 						options: {
@@ -28,15 +36,18 @@ module.exports = {
 	},
 
 	plugins: [
-		//new webpack.HotModuleReplacementPlugin()
+		new CleanWebpackPlugin(),
+		new HtmlWebpackPlugin({
+			template: './src/index.html',
+		}),
+		//new webpack.HotModuleReplacementPlugin(),
 	],
 
-	mode: 'development',
 	devtool: 'source-map',
 
 	devServer: {
 		inline: true,
-		//hot: true,
+		hot: true,
 		stats: 'errors-only',
 		contentBase: './dist'
 	}

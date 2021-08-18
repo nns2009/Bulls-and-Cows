@@ -1,24 +1,19 @@
 {
-  "name": "bulls-and-cows",
-  "version": "0.1.0",
-  "description": "Simple but interesting classical number guessing game",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nns2009/Bulls-and-Cows.git"
-  },
-  "author": "Igor Konyakhin",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/nns2009/Bulls-and-Cows/issues"
-  },
+  "private": true,
   "scripts": {
-    "start": "webpack serve --mode development --env development --port 3000",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "webpack serve",
+    "build": "cross-env NODE_ENV=production webpack",
+    "build-dev": "webpack",
+    "clean": "shx rm -rf dist"
   },
   "homepage": "https://github.com/nns2009/Bulls-and-Cows#readme",
   "devDependencies": {
+    "clean-webpack-plugin": "^4.0.0-alpha.0",
+    "cross-env": "^7.0.3",
     "elm-hot-webpack-loader": "^1.1.8",
     "elm-webpack-loader": "^8.0.0",
+    "html-webpack-plugin": "^5.3.2",
+    "shx": "^0.3.3",
     "webpack": "^5.50.0",
     "webpack-cli": "^4.8.0",
     "webpack-dev-server": "^3.11.2"
