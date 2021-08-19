@@ -2,6 +2,6 @@ Main (guess-cows-bulls) table redesign
 
 "Show tutorial" checkbox styling
 "Number of digits" radiobuttons styling
-Make left and right sections (Menu and Rules) open the same way
 
+?Make left and right sections' (Menu and Rules) background white when closed
 Computer prompts redesign

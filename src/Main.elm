@@ -465,11 +465,17 @@ guessView answer guess =
 
 --------------- Side sections ---------------
 
-type LeftRight = Left
-               | Right
+type LeftRight
+    = Left
+    | Right
 
-sideSection : LeftRight -> String -> List (Html Msg) -> Html Msg
-sideSection side title content =
+type OpenType
+    = Slide
+    | Appear
+
+
+sideSection : LeftRight -> OpenType -> String -> List (Html Msg) -> Html Msg
+sideSection side openType title content =
   div [ css
     [ if side == Left then dockLeft else dockRight
     , zIndex (int 4)
@@ -537,6 +543,11 @@ sideSection side title content =
       [ class "revealContent"
       , css
         [ height (pct 100)
+        , float <|
+            if (side == Left) == (openType == Appear) then
+                left
+            else
+                right
         , centerChildren 
         , padding sidePanelPadding
         , width sideOpenWidth
@@ -549,10 +560,11 @@ sideSection side title content =
       ]
     ]
 
+sectionOpenType = Slide
 
 rulesView : Int -> Html Msg
 rulesView digitsCount =
-    sideSection Right "Rules"
+    sideSection Right sectionOpenType "Rules"
         [ p [] [ text <| "Computer picked up " ++ str digitsCount ++ " different " ++ pluralize "digit" digitsCount ++ " - your goal is to guess them" ]
         , p [] [ text "Your guess has to consist of the same number of digits, also different. For each of your guesses computer replies with a number of \"Cows\" and \"Bulls\", where"]
         , ul [ css [listStyle] ]
@@ -566,7 +578,7 @@ rulesView digitsCount =
 
 menuView : Int -> Int -> Bool -> Int -> Html Msg
 menuView gamesCompleted numGuessesAcrossAllGames completedTutorial nextDigitsCount = 
-    sideSection Left "Menu"
+    sideSection Left sectionOpenType "Menu"
         [ p []
           [ input
             [ type_ "checkbox"
