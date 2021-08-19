@@ -1,17 +1,8 @@
 'use strict';
 
-import './second.js'
+import './launchElm'
 
-//require('./index.html');
-const {Elm} = require('./Main.elm');
-
-console.log('index 23')
-
-Elm.Main.init({node: document.getElementById('main')});
-
-
-if (module.hot) {
-	module.hot.accept('./second.js', () => {
-		console.log('Change detected');
-	});
-}
+// It doesn't work as expected: Elm state is lost and something gets broken
+// if (module.hot) {
+// 	module.hot.accept('./launchElm', () => {});
+// }

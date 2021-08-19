@@ -1,7 +1,7 @@
-Saving game state to localStorage
 Main (guess-cows-bulls) table redesign
 
-Show tutorial checkbox styling
-Number of digits radiobuttons styling
+"Show tutorial" checkbox styling
+"Number of digits" radiobuttons styling
+Make left and right sections (Menu and Rules) open the same way
 
 Computer prompts redesign

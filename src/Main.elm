@@ -1,9 +1,10 @@
-module Main exposing (..)
+port module Main exposing (..)
 
-import Tuple
 import List.Extra
 import Maybe exposing (withDefault)
 import Random
+import Json.Decode as D
+import Json.Encode as E
 
 import Browser
 
@@ -56,13 +57,56 @@ nDigits = nThings "digit"
 
 -- Game Logic
 
-main : Program () Model Msg
+main : Program E.Value Model Msg
 main = Browser.document
     { init = init
-    , update = update
+    , update = update |> withSaving
     , view = view
     , subscriptions = (\_ -> Sub.none)
     }
+
+port save : E.Value -> Cmd msg
+
+modelEncoder : Model -> E.Value
+modelEncoder model =
+    E.object
+        [ ( "answer"
+          , case model.answer of
+                Nothing -> E.null
+                Just digits -> E.list E.int digits
+          )
+        , ( "exampleAnswers"
+          , E.list (E.list E.int) model.exampleAnswers
+          )
+        , ( "guess", E.string model.guess )
+        , ( "guesses"
+          , E.list (E.list E.int) model.guesses
+          )
+        , ( "nextDigitsCount", E.int model.nextDigitsCount )
+        , ( "gamesCompleted", E.int model.gamesCompleted )
+        , ( "numGuessesAcrossAllGames", E.int model.numGuessesAcrossAllGames )
+        , ( "completedTutorial", E.bool model.completedTutorial )
+        ]
+
+modelDecoder =
+    D.map8 Model
+        (D.field "answer" (D.nullable (D.list D.int)))
+        (D.field "exampleAnswers" <| D.list <| D.list D.int)
+        (D.field "guess" D.string)
+        (D.field "guesses" <| D.list <| D.list D.int)
+        (D.field "nextDigitsCount" D.int)
+        (D.field "gamesCompleted" D.int)
+        (D.field "numGuessesAcrossAllGames" D.int)
+        (D.field "completedTutorial" D.bool)
+
+withSaving : (Msg -> Model -> (Model, Cmd Msg)) -> Msg -> Model -> (Model, Cmd Msg)
+withSaving baseUpdate msg model = 
+    let
+        (nextModel, command) = baseUpdate msg model
+    in
+        ( nextModel
+        , Cmd.batch [command, save <| modelEncoder nextModel]
+        )
 
 minDigitsCount = 3
 maxDigitsCount = 8
@@ -94,20 +138,23 @@ newGameCommands digitsCount =
         :: (List.range 1 exampleAnswerCount |> List.map (\_ -> generateExampleAnswer digitsCount))
         )
 
-init : flags -> (Model, Cmd Msg)
-init _ = 
-    ( { answer = Nothing
-      , exampleAnswers = []
-      --, message = ""
-      , guess = ""
-      , guesses = []
-      , nextDigitsCount = initialDigitsCount
-      , gamesCompleted = 0
-      , numGuessesAcrossAllGames = 0
-      , completedTutorial = False
-      }
-    , newGameCommands initialDigitsCount
-    )
+init : E.Value -> (Model, Cmd Msg)
+init flags =
+    case D.decodeValue modelDecoder flags of
+        Ok model -> (model, Cmd.none)
+        Err _ ->
+            ( { answer = Nothing
+              , exampleAnswers = []
+              --, message = ""
+              , guess = ""
+              , guesses = []
+              , nextDigitsCount = initialDigitsCount
+              , gamesCompleted = 0
+              , numGuessesAcrossAllGames = 0
+              , completedTutorial = False
+              }
+            , newGameCommands initialDigitsCount
+            )
 
 resetGame : Model -> (Model, Cmd Msg)
 resetGame model =
