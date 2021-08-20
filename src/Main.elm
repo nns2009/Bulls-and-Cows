@@ -318,6 +318,7 @@ dockTop = batch
 baseTransitionDuration = 200
 mainFontFamily = "Calibri"
 mainFontSize = px 24
+secondaryTextColor = hsl 0 0 0.2
 
 baseTextStyle = batch
     [ fontFamilies [ mainFontFamily ]
@@ -356,10 +357,38 @@ listStyle = batch
     , marginTop (px 10), marginBottom (px 10)
     ]
 
+checkboxSize = px 30
+checkboxStyle = batch
+    [ margin zero
+    , marginRight (px 12)
+    , width checkboxSize
+    , height checkboxSize
+    ]
+
+checkboxLabelStyle = batch
+    [ baseTextStyle
+    , fontSize (px 24)
+    , color secondaryTextColor
+    ]
+
 --------------- UI style ---------------
 
 uiTransitionDuration = 300
 buttonTransitionDuration = uiTransitionDuration
+
+uiBorders = batch
+    [ border zero
+    , borderLeft3 (px 2) solid (hsl 0 0 0.3)
+    , borderRight3 (px 2) solid (hsl 0 0 0.3)
+    , hover [ borderColor (hsl 194 1 0.26) ]
+    , active [ borderColor (hsl 194 1 0.23) ]
+    ]
+
+uiBackground = batch
+    [ backgroundColor (hsl 0 0 0.96)
+    , hover [ backgroundColor (hsl 194 1 0.88) ]
+    , active [ backgroundColor (hsl 194 1 0.72) ]
+    ]
 
 buttonVerticalPadding = px 12
 buttonStyle = batch
@@ -367,26 +396,20 @@ buttonStyle = batch
     , width (pct 100)
     , paddingTop buttonVerticalPadding
     , paddingBottom buttonVerticalPadding
-    , border zero
-    , borderLeft3 (px 2) solid (hsl 0 0 0.3)
-    , borderRight3 (px 2) solid (hsl 0 0 0.3)
+    , uiBorders
+    , uiBackground
     , color (hsl 0 0 0.1)
     , cursor pointer
     , transition
-      [ Tr.backgroundColor buttonTransitionDuration
+      [ Tr.color buttonTransitionDuration
+      , Tr.backgroundColor buttonTransitionDuration
       , Tr.borderColor buttonTransitionDuration
-      , Tr.color buttonTransitionDuration
       ]
-    , backgroundColor (hsl 0 0 0.96)
     , hover
-      [ backgroundColor (hsl 194 1 0.88)
-      , borderColor (hsl 194 1 0.26)
-      , color (hsl 194 1 0.11)
+      [ color (hsl 194 1 0.11)
       ]
     , active
-      [ backgroundColor (hsl 194 1 0.72)
-      , borderColor (hsl 194 1 0.23)
-      , color (hsl 194 1 0.06)
+      [ color (hsl 194 1 0.06)
       ]
     ]
 
@@ -408,6 +431,39 @@ inputStyle = batch
       ]
     , active
       [ borderColor (hsl 0 0 0.1)
+      ]
+    ]
+
+radioButtonTransitionDuration = 200
+radioButtonGroupStyle = batch
+    [ displayFlex
+    , uiBorders
+    ]
+radioButtonStyle = batch
+    [ flex3 (num 1) (num 1) zero
+    , height (px 36)
+    , centerChildren
+    , position relative
+    , cursor pointer
+    , uiBackground
+    , transition
+      [ Tr.color radioButtonTransitionDuration
+      , Tr.backgroundColor radioButtonTransitionDuration
+      , Tr.borderColor radioButtonTransitionDuration
+      ]
+    ,  after
+      [ display block
+      , dockFull
+      , property "content" "\"\""
+      , backgroundColor (rgb 0 0 0)
+      , opacity (num 0)
+      , transition [ Tr.opacity radioButtonTransitionDuration ]
+      ]
+    ]
+
+radioButtonCheckedStyle = batch
+    [ after
+      [  opacity (num 0.18)
       ]
     ]
 
@@ -511,7 +567,7 @@ sideSection side openType title content =
             [ Tr.top sidePanelOpenTime ]
         ]
       ]
-    , hover
+    , hover -- nthChild "5" -- 
     [ width sideOpenWidth
     , descendants
         [ GSS.class "revealHeader"
@@ -579,39 +635,43 @@ rulesView digitsCount =
 menuView : Int -> Int -> Bool -> Int -> Html Msg
 menuView gamesCompleted numGuessesAcrossAllGames completedTutorial nextDigitsCount = 
     sideSection Left sectionOpenType "Menu"
-        [ p []
-          [ input
-            [ type_ "checkbox"
-            , Attr.checked <| not completedTutorial
-            , onClick <| ShowTutorial completedTutorial
-            , Attr.id "showTutorial"
-            ] []
-          , label
-              [ Attr.for "showTutorial" ]
-              [ text "Show tutorial" ]
-          ]
-        , p [] <|
-            div []
-            [ text "Number of digits"
-            , H.br [] []
-            , text "(in the next game)" ]
-            ::
-            (List.range minDigitsCount maxDigitsCount
-              |> List.map (\i ->
-                div []
-                [ input
-                  [ type_ "radio"
-                  , Attr.checked <| i == nextDigitsCount
-                  , onClick <| ChangeNextDigitsCount i
-                  , Attr.id <| "nextDigitsCount" ++ str i
-                  ] []
-                , label
-                  [ Attr.for <| "nextDigitsCount" ++ str i ]
-                  [ text <| str i]
+        [ div [ css [ margin auto, width (px 220) ] ]
+          [ p [ css [displayFlex, alignItems center] ]
+            [ input
+                [ type_ "checkbox"
+                , Attr.checked <| not completedTutorial
+                , onClick <| ShowTutorial completedTutorial
+                , Attr.id "showTutorial"
+                , css [checkboxStyle]
+                ] []
+            , label
+                [ Attr.for "showTutorial", css [checkboxLabelStyle] ]
+                [ text "Show tutorial" ]
+            ]
+            , p [] <|
+                [ div []
+                    [ text "Number of digits"
+                    , H.br [] []
+                    , text "(in the next game)"
+                    ]
+                , div [ css [ radioButtonGroupStyle ] ]
+                    (List.range minDigitsCount maxDigitsCount
+                    |> List.map
+                        (\i ->
+                            div
+                            [ css <| radioButtonStyle
+                              :: if i == nextDigitsCount then
+                                [radioButtonCheckedStyle]
+                              else
+                                []
+                            , onClick <| ChangeNextDigitsCount i
+                            ]
+                            [ text <| str i ]
+                        )
+                    )
                 ]
-              )
-            )
-        , p [] [ button [ onClick Restart, css [ buttonStyle ] ] [ text "Restart" ] ]
+            , p [] [ button [ onClick Restart, css [ buttonStyle ] ] [ text "Restart" ] ]
+          ]
           
         , div [ css [sideTitleStyle] ] [ text "Statistics" ]
         , p [] [ text <| "You have completed " ++ nThings "game" gamesCompleted]
